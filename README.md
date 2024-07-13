@@ -1,6 +1,6 @@
 # TecExp: Tec Markdown Exporter
 
-`tecexp` export Markdown documents from Obsidian to Hugo. `tecexp` find documents with property `public: web` in Obsidian vault directory and export them to Hugo posts directory.
+`tecexp` export Markdown documents from Obsidian to Hugo. `tecexp` find documents with property `publish: web` in Obsidian vault directory and export them to Hugo posts directory.
 
 ## Install
 
