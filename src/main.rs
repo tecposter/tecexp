@@ -78,6 +78,8 @@ fn main() -> Result<()> {
     return Ok(());
   }
 
+  println!("=== \n Watch {src_dir:?} \n===");
+
   let (tx, rx) = channel();
   let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
   watcher.watch(&src_dir, RecursiveMode::Recursive)?;
@@ -200,7 +202,20 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
     }
     writeln!(writer, "---")?;
 
+    let mut is_coding = false;
     for line in src_lines {
+      if !is_coding && line.trim().starts_with("```") {
+        is_coding = true;
+      }
+
+      if is_coding {
+        writeln!(writer, "{line}")?;
+        if line.trim().eq("```") {
+          is_coding = false;
+        }
+        continue;
+      }
+
       let mut curr = 0;
       while let Some(start) = line[curr..].find("[[") {
         write!(writer, "{}", &line[curr..(curr + start)])?;
@@ -213,10 +228,15 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
             // println!("{img_src:?} -> {img_dst:?}");
             fs::copy(asset_src.join(inner), asset_dst.join(inner))?;
             write!(writer, "[{inner}](/assets/{inner})")?;
-          } else {
+          } else if !inner.trim().is_empty() {
             write!(writer, "[{}](/posts/{}/)", inner, to_url(inner))?;
+          } else {
+            write!(writer, "[[{inner}]]")?;
           }
           curr += 2 + end + 2;
+        } else {
+          write!(writer, "{}", &line[curr..])?;
+          curr = line.len();
         }
       }
       write!(writer, "{}\n", &line[curr..])?;
