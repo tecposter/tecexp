@@ -1,5 +1,5 @@
 use std::{
-  collections::HashMap,
+  collections::BTreeMap,
   ffi::OsStr,
   fs::{self, File},
   io::{BufRead, BufReader, BufWriter, Lines, Write},
@@ -171,6 +171,8 @@ fn to_url(p: &str) -> String {
 fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<()> {
   let src_file = File::open(src)?;
   let mut src_lines = BufReader::new(src_file).lines().flatten().peekable();
+
+  // Extract src props
   if let Some(src_props) = extract_src_props(&mut src_lines) {
     if !contain_publish_web(&src_props) {
       return Ok(());
@@ -182,10 +184,13 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
 
     println!("export: {src:?} \n    -> {dst:?} \n");
 
+    // Build dst props
     let dst_props = build_dst_props(&src_props, src);
 
     let dst_file = File::create(dst)?;
     let mut writer = BufWriter::new(dst_file);
+
+    // Write dst props
     writeln!(writer, "---")?;
     for (key, val) in dst_props.iter() {
       match val {
@@ -202,8 +207,14 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
     }
     writeln!(writer, "---")?;
 
+    // Write content
     let mut is_coding = false;
     for line in src_lines {
+      if line.trim().eq("=== end ===") {
+        break;
+      }
+
+      // Ignore coding blocks
       if !is_coding && line.trim().starts_with("```") {
         is_coding = true;
       }
@@ -216,7 +227,10 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
         continue;
       }
 
+      // Write line by line
       let mut curr = 0;
+      // Replace `[[Some title]]` to `[Some tile](/posts/some-title/)`
+      // Replace `[[some-img.png]]` to `[some-img.png](/assets/some-img.png)`
       while let Some(start) = line[curr..].find("[[") {
         write!(writer, "{}", &line[curr..(curr + start)])?;
         curr += start;
@@ -247,8 +261,8 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
   Ok(())
 }
 
-fn build_dst_props(src_props: &HashMap<String, Prop>, src: &Path) -> HashMap<String, Prop> {
-  let mut props: HashMap<String, Prop> = HashMap::new();
+fn build_dst_props(src_props: &BTreeMap<String, Prop>, src: &Path) -> BTreeMap<String, Prop> {
+  let mut props: BTreeMap<String, Prop> = BTreeMap::new();
 
   let title = src
     .file_name()
@@ -272,7 +286,7 @@ fn build_dst_props(src_props: &HashMap<String, Prop>, src: &Path) -> HashMap<Str
   props
 }
 
-fn contain_publish_web(props: &HashMap<String, Prop>) -> bool {
+fn contain_publish_web(props: &BTreeMap<String, Prop>) -> bool {
   if let Some(Prop::Str(v)) = props.get("publish") {
     v.eq("web")
   } else {
@@ -292,7 +306,7 @@ fn is_modified(src: &Path, dst: &Path) -> bool {
 
 fn extract_src_props(
   lines: &mut Peekable<Flatten<Lines<BufReader<File>>>>,
-) -> Option<HashMap<String, Prop>> {
+) -> Option<BTreeMap<String, Prop>> {
   while let Some(line) = lines.peek() {
     if line.is_empty() {
       lines.next();
@@ -308,7 +322,7 @@ fn extract_src_props(
     }
   }
 
-  let mut props: HashMap<String, Prop> = HashMap::new();
+  let mut props: BTreeMap<String, Prop> = BTreeMap::new();
   let mut vec_key = String::new();
 
   while let Some(line) = lines.next() {
