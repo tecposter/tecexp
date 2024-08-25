@@ -182,7 +182,7 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
       return Ok(());
     }
 
-    println!("export: {src:?} \n    -> {dst:?} \n");
+    println!("\n export: {src:?} \n    -> {dst:?}");
 
     // Build dst props
     let dst_props = build_dst_props(&src_props, src);
@@ -237,11 +237,12 @@ fn export(src: &Path, dst: &Path, asset_src: &Path, asset_dst: &Path) -> Result<
         if let Some(end) = line[(curr + 2)..].find("]]") {
           let inner = &line[(curr + 2)..(curr + 2 + end)];
           if inner.ends_with(".png") || inner.ends_with(".jpg") {
-            // let img_src = asset_src.join(inner);
-            // let img_dst = asset_dst.join(inner);
-            // println!("{img_src:?} -> {img_dst:?}");
-            fs::copy(asset_src.join(inner), asset_dst.join(inner))?;
-            write!(writer, "[{inner}](/assets/{inner})")?;
+            let inner_url = to_url(inner);
+            let img_src = asset_src.join(inner);
+            let img_dst = asset_dst.join(&inner_url);
+            println!("    copy: {img_src:?} \n      -> {img_dst:?}");
+            fs::copy(img_src, img_dst)?;
+            write!(writer, "[{inner_url}](/assets/{inner_url})")?;
           } else if !inner.trim().is_empty() {
             write!(writer, "[{}](/posts/{}/)", inner, to_url(inner))?;
           } else {
